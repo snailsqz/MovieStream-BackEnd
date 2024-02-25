@@ -55,6 +55,11 @@ const User = sequelize.define("user", {
     defaultValue: "User",
     allowNull: false,
   },
+  profilePicture: {
+    type: Sequelize.STRING,
+    defaultValue: "noimage.jpg",
+    allowNull: true,
+  },
 });
 
 const Favorite = sequelize.define("favorite", {
@@ -133,9 +138,23 @@ app.put("/movie/:id", (req, res) => {
       if (!movie) {
         res.status(404).send("Movie not found");
       } else {
+        if (req.body.imageFile != undefined) {
+          const imagePath = path.join(
+            __dirname,
+            `/public/images/${movie.imageFile}`
+          );
+          fs.unlink(imagePath, (err) => {
+            if (err) {
+              console.log("Error deleting file:", err);
+            } else {
+              console.log("File deleted successfully");
+            }
+          });
+        }
         movie
           .update(req.body)
           .then(() => {
+            console.log(req.body);
             res.send(movie);
           })
           .catch((err) => {
@@ -160,8 +179,6 @@ app.delete("/movie/:id", (req, res) => {
         res.status(404).send("Movie not found");
       } else {
         if (movie.imageFile) {
-          console.log("1");
-          console.log(movie.imageFile);
           const imagePath = path.join(
             __dirname,
             `/public/images/${movie.imageFile}`
@@ -219,6 +236,30 @@ app.post("/login", async (req, res) => {
   }
 });
 
+app.get("/users", (req, res) => {
+  User.findAll() //select * from
+    .then((users) => {
+      res.json(users);
+    })
+    .catch((err) => {
+      res.status(500).send(err);
+    });
+});
+
+app.get("/user/:id", (req, res) => {
+  User.findByPk(req.params.id)
+    .then((users) => {
+      if (!users) {
+        res.status(404).send("users not found");
+      } else {
+        res.json(users);
+      }
+    })
+    .catch((err) => {
+      res.status(500).send(err);
+    });
+});
+
 app.put("/user/:id", (req, res) => {
   User.findByPk(req.params.id)
     .then((user) => {
@@ -229,6 +270,27 @@ app.put("/user/:id", (req, res) => {
           .update(req.body)
           .then(() => {
             res.send(user);
+          })
+          .catch((err) => {
+            res.status(500).send(err);
+          });
+      }
+    })
+    .catch((err) => {
+      res.status(500).send(err);
+    });
+});
+
+app.delete("/user/:id", (req, res) => {
+  User.findByPk(req.params.id)
+    .then((user) => {
+      if (!user) {
+        res.status(404).send("User not found");
+      } else {
+        user
+          .destroy()
+          .then(() => {
+            res.send({ message: "Delete Successfully" });
           })
           .catch((err) => {
             res.status(500).send(err);
@@ -283,6 +345,33 @@ app.post("/favorite", async (req, res) => {
   }
 });
 
-app.listen(3000, () =>
-  console.log(`Listening on port http://localhost:3000...`)
+app.delete("/favorite", async (req, res) => {
+  try {
+    const existingFavorite = await Favorite.findOne({
+      where: {
+        movie_id: req.body.movie_id,
+        user_id: req.body.user_id,
+      },
+    });
+
+    if (!existingFavorite)
+      return res.send.json({ message: "Favorite not found" });
+
+    await Favorite.destroy({
+      where: {
+        movie_id: req.body.movie_id,
+        user_id: req.body.user_id,
+      },
+    });
+
+    res.json({ message: "Favorite successfully deleted" });
+  } catch (error) {
+    console.error("Error deleting favorite:", error);
+    res.status(500).send("Internal Server Error");
+  }
+});
+
+const port = process.env.PORT || 3000;
+app.listen(port, () =>
+  console.log(`Listening on port http://localhost:${port}...`)
 );

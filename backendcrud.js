@@ -266,9 +266,26 @@ app.put("/user/:id", (req, res) => {
       if (!user) {
         res.status(404).send("user not found");
       } else {
+        if (
+          req.body.profilePicture != undefined &&
+          user.profilePicture != "noimage.jpg"
+        ) {
+          const imagePath = path.join(
+            __dirname,
+            `/public/images/${user.profilePicture}`
+          );
+          fs.unlink(imagePath, (err) => {
+            if (err) {
+              console.log("Error deleting file:", err);
+            } else {
+              console.log("File deleted successfully");
+            }
+          });
+        }
         user
           .update(req.body)
           .then(() => {
+            console.log(req.body);
             res.send(user);
           })
           .catch((err) => {
